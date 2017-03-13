@@ -30,19 +30,24 @@ import scala.reflect.{ClassTag, classTag}
   * when the stage terminates.
   */
 final class ApnsClientStage[T, C <: SocketChannel: ClassTag](
-  remoteAddress: InetSocketAddress, sslContext: SslContext,
-  group: EventLoopGroup)(implicit ru: ResponseUnmarshaller)
-    extends GraphStageWithMaterializedValue[FlowShape[(T, Notification), (T, Response)], Future[Option[Reason]]] {
+    remoteAddress: InetSocketAddress,
+    sslContext: SslContext,
+    group: EventLoopGroup)(implicit ru: ResponseUnmarshaller)
+    extends GraphStageWithMaterializedValue[
+      FlowShape[(T, Notification), (T, Response)],
+      Future[Option[Reason]]] {
 
   val in = Inlet[(T, Notification)]("ApnsClient.in")
   val out = Outlet[(T, Response)]("ApnsClient.out")
 
   override val shape = FlowShape(in, out)
 
-  override def createLogicAndMaterializedValue(inheritedAttributes: Attributes): (GraphStageLogic, Future[Option[Reason]]) = {
+  override def createLogicAndMaterializedValue(inheritedAttributes: Attributes)
+    : (GraphStageLogic, Future[Option[Reason]]) = {
     val reasonPromise = Promise[Option[Reason]]()
     val logic = new NettyLogic(shape) {
-      override protected def createChannel(bridge: ChannelHandler): ChannelFuture =
+      override protected def createChannel(
+          bridge: ChannelHandler): ChannelFuture =
         new Bootstrap()
           .group(group)
           .channel(classTag[C].runtimeClass.asInstanceOf[JClass[C]])
@@ -56,14 +61,16 @@ final class ApnsClientStage[T, C <: SocketChannel: ClassTag](
     (logic, reasonPromise.future)
   }
 
-  class Initializer(bridge: ChannelHandler, promise: Promise[Option[Reason]])
+  final class Initializer(bridge: ChannelHandler,
+                          promise: Promise[Option[Reason]])
       extends ChannelInitializer[SocketChannel] {
 
     override def initChannel(channel: SocketChannel): Unit = {
       val pipeline = channel.pipeline()
       pipeline.addLast(sslContext.newHandler(channel.alloc()))
       pipeline.addLast(new ApplicationProtocolNegotiationHandler("") {
-        override def configurePipeline(ctx: ChannelHandlerContext, protocol: String): Unit =
+        override def configurePipeline(ctx: ChannelHandlerContext,
+                                       protocol: String): Unit =
           if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
             val pipeline = ctx.channel().pipeline()
 
@@ -75,22 +82,25 @@ final class ApnsClientStage[T, C <: SocketChannel: ClassTag](
 
             pipeline.addLast(apnsConnectionHandler)
             pipeline.addLast(new Http2SettingsHandler(settingsPromise))
-          } else throw new IllegalStateException(s"Unexpected protocol $protocol")
+          } else
+            throw new IllegalStateException(s"Unexpected protocol $protocol")
       })
     }
 
     def apnsConnectionHandler: ChannelHandler =
-      ApnsConnectionHandler.Builder()
+      ApnsConnectionHandler
+        .Builder()
         .reasonPromise(promise)
         .propagateSettings(true)
         .responseUnmarshaller(ru)
         .build()
   }
 
-  class Http2SettingsHandler(promise: ChannelPromise)
+  final class Http2SettingsHandler(promise: ChannelPromise)
       extends SimpleChannelInboundHandler[Http2Settings] {
 
-    override def channelRead0(ctx: ChannelHandlerContext, msg: Http2Settings): Unit = {
+    override def channelRead0(ctx: ChannelHandlerContext,
+                              msg: Http2Settings): Unit = {
       promise.setSuccess()
       ctx.pipeline().remove(this)
     }
@@ -98,7 +108,9 @@ final class ApnsClientStage[T, C <: SocketChannel: ClassTag](
 }
 
 object NioApnsClientStage {
-  def apply[T](remoteAddress: InetSocketAddress, sslContext: SslContext,
-    group: NioEventLoopGroup)(implicit ru: ResponseUnmarshaller): ApnsClientStage[T, NioSocketChannel] =
+  def apply[T](remoteAddress: InetSocketAddress,
+               sslContext: SslContext,
+               group: NioEventLoopGroup)(implicit ru: ResponseUnmarshaller)
+    : ApnsClientStage[T, NioSocketChannel] =
     new ApnsClientStage[T, NioSocketChannel](remoteAddress, sslContext, group)
 }

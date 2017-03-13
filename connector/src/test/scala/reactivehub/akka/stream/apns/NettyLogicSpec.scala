@@ -115,10 +115,12 @@ class NettyLogicSpec(_system: ActorSystem)
     withServer(autoClose = true) { (stage, server) ⇒
       val results = mutable.HashSet.empty[String]
 
-      Await.result(Source.fromIterator(() ⇒ (1 to 10000).iterator)
-        .map(i ⇒ s"Hello $i\n")
-        .via(stage.async)
-        .runWith(Sink.foreach(results += _)), 3.seconds)
+      Await.result(Source
+                     .fromIterator(() ⇒ (1 to 10000).iterator)
+                     .map(i ⇒ s"Hello $i\n")
+                     .via(stage.async)
+                     .runWith(Sink.foreach(results += _)),
+                   3.seconds)
 
       results.size shouldBe 10000
     }
@@ -261,14 +263,18 @@ class NettyLogicSpec(_system: ActorSystem)
 trait EchoHelpers extends NettyHelpers with BeforeAndAfterAll {
   this: TestKitBase with Suite ⇒
 
-  final class EchoClientStage(
-    remoteAddress: InetSocketAddress,
-    group: NioEventLoopGroup,
-    halfClose: Boolean = true,
-    allocator: ByteBufAllocator = UnpooledByteBufAllocator.DEFAULT)
-      extends TestableSocketNettyStage[String, String](remoteAddress, group, halfClose, allocator) {
+  final class EchoClientStage(remoteAddress: InetSocketAddress,
+                              group: NioEventLoopGroup,
+                              halfClose: Boolean = true,
+                              allocator: ByteBufAllocator =
+                                UnpooledByteBufAllocator.DEFAULT)
+      extends TestableSocketNettyStage[String, String](remoteAddress,
+                                                       group,
+                                                       halfClose,
+                                                       allocator) {
 
-    override protected def setup(pipeline: ChannelPipeline, bridge: ChannelHandler): Unit = {
+    override protected def setup(pipeline: ChannelPipeline,
+                                 bridge: ChannelHandler): Unit = {
       pipeline.addLast(new LineBasedFrameDecoder(80))
       pipeline.addLast(new StringDecoder(UTF_8))
       pipeline.addLast(new StringEncoder(UTF_8))
@@ -276,8 +282,9 @@ trait EchoHelpers extends NettyHelpers with BeforeAndAfterAll {
     }
   }
 
-  final class EchoServerConnection(channel: SocketChannel, probe: TestProbe,
-      dataProbe: TestProbe) {
+  final class EchoServerConnection(channel: SocketChannel,
+                                   probe: TestProbe,
+                                   dataProbe: TestProbe) {
 
     def expectInputClosed(): Unit = probe.expectMsg(InputClosed)
     def shutdownOutput(): Unit = channel.shutdownOutput()
@@ -285,19 +292,22 @@ trait EchoHelpers extends NettyHelpers with BeforeAndAfterAll {
     def write(data: String): Unit = channel.writeAndFlush(data)
   }
 
-  final class EchoServer(
-    group: NioEventLoopGroup,
-    halfClose: Boolean = true,
-    autoClose: Boolean = false,
-    allocator: ByteBufAllocator = UnpooledByteBufAllocator.DEFAULT)
-      extends TestableServer[EchoServerConnection](group, halfClose, allocator = allocator) {
+  final class EchoServer(group: NioEventLoopGroup,
+                         halfClose: Boolean = true,
+                         autoClose: Boolean = false,
+                         allocator: ByteBufAllocator =
+                           UnpooledByteBufAllocator.DEFAULT)
+      extends TestableServer[EchoServerConnection](group,
+                                                   halfClose,
+                                                   allocator = allocator) {
 
     override protected def setup(pipeline: ChannelPipeline): Unit = {
       pipeline.addLast(new LineBasedFrameDecoder(80, false, false))
       pipeline.addLast(new StringDecoder(UTF_8))
       pipeline.addLast(new StringEncoder(UTF_8))
       pipeline.addLast(new SimpleChannelInboundHandler[String] {
-        override def channelRead0(ctx: ChannelHandlerContext, msg: String): Unit = {
+        override def channelRead0(ctx: ChannelHandlerContext,
+                                  msg: String): Unit = {
           ctx.pipeline().fireUserEventTriggered(Received(msg))
           ctx.write(msg)
         }
@@ -305,12 +315,14 @@ trait EchoHelpers extends NettyHelpers with BeforeAndAfterAll {
         override def channelReadComplete(ctx: ChannelHandlerContext): Unit =
           ctx.flush()
 
-        override def channelWritabilityChanged(ctx: ChannelHandlerContext): Unit = {
+        override def channelWritabilityChanged(
+            ctx: ChannelHandlerContext): Unit = {
           ctx.channel().config().setAutoRead(ctx.channel().isWritable)
           ctx.fireChannelWritabilityChanged()
         }
 
-        override def userEventTriggered(ctx: ChannelHandlerContext, evt: Any): Unit = {
+        override def userEventTriggered(ctx: ChannelHandlerContext,
+                                        evt: Any): Unit = {
           if (evt.isInstanceOf[ChannelInputShutdownEvent] && autoClose)
             ctx.channel().asInstanceOf[SocketChannel].shutdownOutput()
           ctx.fireUserEventTriggered(evt)
@@ -318,9 +330,13 @@ trait EchoHelpers extends NettyHelpers with BeforeAndAfterAll {
       })
     }
 
-    override protected def createConnection(channel: Channel, probe: TestProbe,
-      dataProbe: TestProbe): EchoServerConnection =
-      new EchoServerConnection(channel.asInstanceOf[SocketChannel], probe, dataProbe)
+    override protected def createConnection(
+        channel: Channel,
+        probe: TestProbe,
+        dataProbe: TestProbe): EchoServerConnection =
+      new EchoServerConnection(channel.asInstanceOf[SocketChannel],
+                               probe,
+                               dataProbe)
   }
 
   var group: NioEventLoopGroup = _
@@ -338,7 +354,8 @@ trait EchoHelpers extends NettyHelpers with BeforeAndAfterAll {
   def withServer(f: (EchoClientStage, EchoServer) ⇒ Any): Unit =
     withServer()(f)
 
-  def withServer(halfClose: Boolean = true, autoClose: Boolean = false)(f: (EchoClientStage, EchoServer) ⇒ Any): Unit = {
+  def withServer(halfClose: Boolean = true, autoClose: Boolean = false)(
+      f: (EchoClientStage, EchoServer) ⇒ Any): Unit = {
     val server = new EchoServer(group, autoClose = autoClose)
     try {
       val stage = new EchoClientStage(server.address, group, halfClose)

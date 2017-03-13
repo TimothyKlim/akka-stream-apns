@@ -3,18 +3,17 @@ package reactivehub.akka.stream.apns.marshallers
 import org.scalatest.{FlatSpec, Matchers}
 import reactivehub.akka.stream.apns._
 
-trait MarshallerBehaviours {
-  this: FlatSpec with Matchers ⇒
+trait MarshallerBehaviours { this: FlatSpec with Matchers ⇒
 
   val m: PayloadMarshaller
   def wrap(field: String, value: m.Node): m.Node
   def parse(value: String): m.Node
 
-  def payloadMarshaller[T](string: String, int: Int, t: T, expectedT: m.Node)(implicit w: m.Writer[T]): Unit = {
+  def payloadMarshaller[T](string: String, int: Int, t: T, expectedT: m.Node)(
+      implicit w: m.Writer[T]): Unit = {
     it should "encode a String" in {
       val encoded = wrap("field", m.jsonString(string))
-      val expected = parse(
-        s"""
+      val expected = parse(s"""
            |{
            |  "field": "$string"
            |}
@@ -24,8 +23,7 @@ trait MarshallerBehaviours {
 
     it should "encode an Int" in {
       val encoded = wrap("field", m.jsonNumber(int))
-      val expected = parse(
-        s"""
+      val expected = parse(s"""
            |{
            |  "field": $int
            |}
@@ -35,8 +33,7 @@ trait MarshallerBehaviours {
 
     it should "encode an Array" in {
       val encoded = m.jsonArray(Seq(m.jsonString(string), m.jsonNumber(int)))
-      val expected = parse(
-        s"""
+      val expected = parse(s"""
            |["$string", $int]
          """.stripMargin)
       encoded should be(expected)
@@ -48,9 +45,9 @@ trait MarshallerBehaviours {
           "field1" → m.jsonString(string),
           "field2" → m.jsonNumber(int),
           "field3" → m.jsonArray(Seq(m.jsonString(string), m.jsonNumber(int))),
-          "field4" → m.jsonObject(Map("field" → m.jsonString(string)))))
-      val expected = parse(
-        s"""
+          "field4" → m.jsonObject(Map("field" → m.jsonString(string)))
+        ))
+      val expected = parse(s"""
            |{
            |  "field1": "$string",
            |  "field2": $int,
@@ -74,7 +71,8 @@ trait MarshallerBehaviours {
           "field1" → m.jsonString(string),
           "field2" → m.jsonNumber(int),
           "field3" → m.jsonArray(Seq(m.jsonString(string), m.jsonNumber(int))),
-          "field4" → m.jsonObject(Map("field" → m.jsonString(string)))))
+          "field4" → m.jsonObject(Map("field" → m.jsonString(string)))
+        ))
       val expected = parse(m.print(encoded).utf8String)
       encoded should be(expected)
     }
@@ -133,7 +131,8 @@ trait MarshallerBehaviours {
     }
   }
 
-  def responseUnmarshallerWithSaneNone(implicit ru: ResponseUnmarshaller): Unit = {
+  def responseUnmarshallerWithSaneNone(
+      implicit ru: ResponseUnmarshaller): Unit = {
     responseUnmarshaller
 
     it should "fail to read a valid JSON with invalid timestamp" in {

@@ -6,7 +6,8 @@ import io.netty.util.concurrent.GlobalEventExecutor
 import java.net.InetSocketAddress
 
 abstract class AbstractServer[C <: ServerChannel] {
-  private val channelGroup = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE)
+  private val channelGroup = new DefaultChannelGroup(
+    GlobalEventExecutor.INSTANCE)
 
   protected def createAddToChannelGroupHandler(): AddToChannelGroupHandler =
     new AddToChannelGroupHandler(channelGroup)

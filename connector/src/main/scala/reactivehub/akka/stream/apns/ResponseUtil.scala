@@ -27,7 +27,8 @@ private[apns] object ResponseUtil {
       "Shutdown" → Shutdown,
       "InternalServerError" → InternalServerError,
       "ServiceUnavailable" → ServiceUnavailable,
-      "MissingTopic" → MissingTopic)
+      "MissingTopic" → MissingTopic
+    )
   }
 
   /**
@@ -39,9 +40,16 @@ private[apns] object ResponseUtil {
   private val statusCodeMap = {
     import reactivehub.akka.stream.apns.StatusCode._
 
-    val statusCodes = Seq(OK, BadRequest, Forbidden, NotFound, MethodNotAllowed,
-      Gone, RequestEntityTooLarge, TooManyRequests, InternalServerError,
-      ServiceUnavailable)
+    val statusCodes = Seq(OK,
+                          BadRequest,
+                          Forbidden,
+                          NotFound,
+                          MethodNotAllowed,
+                          Gone,
+                          RequestEntityTooLarge,
+                          TooManyRequests,
+                          InternalServerError,
+                          ServiceUnavailable)
 
     statusCodes.foldLeft(Map.empty[Int, StatusCode]) {
       case (m, sc) ⇒ m + (sc.intValue → sc)

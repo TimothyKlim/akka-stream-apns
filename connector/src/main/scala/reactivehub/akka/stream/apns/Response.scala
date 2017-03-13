@@ -21,13 +21,17 @@ object Response {
     override val statusCode = OK
   }
 
-  final case class Failure(statusCode: StatusCode, reason: Reason,
-      timestamp: Option[Long]) extends Response {
-    require(statusCode.isFailure, "Failure cannot have a successful status code")
+  final case class Failure(statusCode: StatusCode,
+                           reason: Reason,
+                           timestamp: Option[Long])
+      extends Response {
+    require(statusCode.isFailure,
+            "Failure cannot have a successful status code")
     require(
       (statusCode == StatusCode.Gone && timestamp.isDefined) ||
         (statusCode != StatusCode.Gone && timestamp.isEmpty),
-      "Timestamp is non-empty iff the status code is Gone")
+      "Timestamp is non-empty iff the status code is Gone"
+    )
     override val isSuccess = false
     override val isFailure = true
   }
@@ -47,20 +51,35 @@ object StatusCode {
   private[StatusCode] sealed class StatusCodeImpl(
       override val intValue: Int,
       override val defaultMessage: String,
-      override val isSuccess: Boolean = false) extends StatusCode {
+      override val isSuccess: Boolean = false)
+      extends StatusCode {
     override def isFailure: Boolean = !isSuccess
   }
 
   case object OK extends StatusCodeImpl(200, "Success", true)
   case object BadRequest extends StatusCodeImpl(400, "Bad request")
-  case object Forbidden extends StatusCodeImpl(403, "There was an error with the certificate.")
+  case object Forbidden
+      extends StatusCodeImpl(403, "There was an error with the certificate.")
   case object NotFound extends StatusCodeImpl(404, "Path not found.")
-  case object MethodNotAllowed extends StatusCodeImpl(405, "The request used a bad :method value. Only POST requests are supported.")
-  case object Gone extends StatusCodeImpl(410, "The device token is no longer active for the topic.")
-  case object RequestEntityTooLarge extends StatusCodeImpl(413, "The notification payload was too large.")
-  case object TooManyRequests extends StatusCodeImpl(429, "The server received too many requests for the same device token.")
-  case object InternalServerError extends StatusCodeImpl(500, "Internal server error")
-  case object ServiceUnavailable extends StatusCodeImpl(503, "The server is shutting down and unavailable.")
+  case object MethodNotAllowed
+      extends StatusCodeImpl(
+        405,
+        "The request used a bad :method value. Only POST requests are supported.")
+  case object Gone
+      extends StatusCodeImpl(
+        410,
+        "The device token is no longer active for the topic.")
+  case object RequestEntityTooLarge
+      extends StatusCodeImpl(413, "The notification payload was too large.")
+  case object TooManyRequests
+      extends StatusCodeImpl(
+        429,
+        "The server received too many requests for the same device token.")
+  case object InternalServerError
+      extends StatusCodeImpl(500, "Internal server error")
+  case object ServiceUnavailable
+      extends StatusCodeImpl(503,
+                             "The server is shutting down and unavailable.")
 }
 
 /**

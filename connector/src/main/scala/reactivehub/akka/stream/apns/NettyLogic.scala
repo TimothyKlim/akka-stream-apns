@@ -14,10 +14,10 @@ import scala.reflect.{ClassTag, classTag}
   * A flow-shaped GraphStageLogic which writes and reads from a Netty channel.
   */
 private[apns] abstract class NettyLogic[I, O: ClassTag](
-  shape: FlowShape[I, O],
-  inputBufferMaxSize: Int = 16,
-  outputBufferSoftLimit: Int = 16,
-  outputBufferMaxSize: Int = Integer.MAX_VALUE)
+    shape: FlowShape[I, O],
+    inputBufferMaxSize: Int = 16,
+    outputBufferSoftLimit: Int = 16,
+    outputBufferMaxSize: Int = Integer.MAX_VALUE)
     extends GraphStageLogic(shape) {
 
   require(inputBufferMaxSize >= 0)
@@ -42,10 +42,12 @@ private[apns] abstract class NettyLogic[I, O: ClassTag](
     f.addListener(new ChannelFutureListener {
       override def operationComplete(f: ChannelFuture): Unit =
         if (f.isSuccess)
-          f.channel().closeFuture().addListener(new ChannelFutureListener {
-            override def operationComplete(f: ChannelFuture): Unit =
-              channelClosed(())
-          })
+          f.channel()
+            .closeFuture()
+            .addListener(new ChannelFutureListener {
+              override def operationComplete(f: ChannelFuture): Unit =
+                channelClosed(())
+            })
         else connectFailed(f.cause())
     })
   }
@@ -94,20 +96,23 @@ private[apns] abstract class NettyLogic[I, O: ClassTag](
   // Set a handler for the input port. It is safe to use the same handler
   // during the whole lifecycle of the stage because no element is pulled
   // before the bridge is ready.
-  setHandler(shape.in, new InHandler {
-    override def onPush(): Unit = {
-      if (writeOnPush) {
-        writeAndFlush(channel, grab(shape.in))
-        writeOnPush = false
-      } else inputBuffer += grab(shape.in)
-      if (inputBuffer.size < inputBufferMaxSize) pull(shape.in)
+  setHandler(
+    shape.in,
+    new InHandler {
+      override def onPush(): Unit = {
+        if (writeOnPush) {
+          writeAndFlush(channel, grab(shape.in))
+          writeOnPush = false
+        } else inputBuffer += grab(shape.in)
+        if (inputBuffer.size < inputBufferMaxSize) pull(shape.in)
+      }
+
+      override def onUpstreamFinish(): Unit =
+        if (inputBuffer.isEmpty) closeWrite()
+
+      override def onUpstreamFailure(cause: Throwable): Unit = fail(cause)
     }
-
-    override def onUpstreamFinish(): Unit =
-      if (inputBuffer.isEmpty) closeWrite()
-
-    override def onUpstreamFailure(cause: Throwable): Unit = fail(cause)
-  })
+  )
 
   /**
     * Writes one or more elements to the channel and flushes it. When the data
@@ -117,12 +122,14 @@ private[apns] abstract class NettyLogic[I, O: ClassTag](
     * stage thread.
     */
   private def writeAndFlush(channel: Channel, msg: Any): Unit = {
-    channel.writeAndFlush(msg).addListener(new ChannelFutureListener {
-      override def operationComplete(f: ChannelFuture): Unit =
-        if (f.isSuccess) {
-          if (channel.isWritable) pullInput(())
-        } else writeFailed(f.cause())
-    })
+    channel
+      .writeAndFlush(msg)
+      .addListener(new ChannelFutureListener {
+        override def operationComplete(f: ChannelFuture): Unit =
+          if (f.isSuccess) {
+            if (channel.isWritable) pullInput(())
+          } else writeFailed(f.cause())
+      })
   }
 
   /**
@@ -133,15 +140,17 @@ private[apns] abstract class NettyLogic[I, O: ClassTag](
     */
   private def closeWrite(): Unit = channel match {
     case c: SocketChannel if canHalfClose(c) ⇒ c.shutdownOutput()
-    case c                                   ⇒ c.close()
+    case c ⇒ c.close()
   }
 
   /**
     * Checks if the channel supports half closing.
     */
   private def canHalfClose(channel: Channel): Boolean =
-    !isClosed(shape.out) && channel.isActive && channel.config()
-      .getOption(ALLOW_HALF_CLOSURE).booleanValue
+    !isClosed(shape.out) && channel.isActive && channel
+      .config()
+      .getOption(ALLOW_HALF_CLOSURE)
+      .booleanValue
 
   /**
     * Closes the output port with the error and closes the channel. Invoked
@@ -181,7 +190,8 @@ private[apns] abstract class NettyLogic[I, O: ClassTag](
     */
   private val writeFailed = getAsyncCallback[Throwable](fail) invoke _
 
-  private class Bridge extends ChannelDuplexHandler {
+  private final class Bridge extends ChannelDuplexHandler {
+
     /**
       * ChannelHandlerContext associated with this handler. Accessed from
       * the I/O thread.
@@ -220,12 +230,14 @@ private[apns] abstract class NettyLogic[I, O: ClassTag](
       * Handles channel writes. If a queue of elements is written to
       * the channel, it transfers individual elements of the queue one by one.
       */
-    override def write(ctx: ChannelHandlerContext, msg: Any,
-      promise: ChannelPromise): Unit =
+    override def write(ctx: ChannelHandlerContext,
+                       msg: Any,
+                       promise: ChannelPromise): Unit =
       msg match {
         case buffer: mutable.Queue[_] ⇒
-          if (writePending) throw new IllegalStateException(
-            "Cannot write new messages while the previous are not flushed")
+          if (writePending)
+            throw new IllegalStateException(
+              "Cannot write new messages while the previous are not flushed")
 
           writeBuffer = buffer
           writePromise = promise
@@ -247,7 +259,7 @@ private[apns] abstract class NettyLogic[I, O: ClassTag](
         do {
           val p = ctx.newPromise()
           ctx.write(writeBuffer.dequeue(), p)
-          combiner.add(p)
+          combiner.add(p: io.netty.util.concurrent.Future[_])
         } while (writeBuffer.nonEmpty && channel.isActive && channel.isWritable)
 
         if (channel.isActive) {
@@ -278,7 +290,8 @@ private[apns] abstract class NettyLogic[I, O: ClassTag](
     /**
       * Fails pending write, if any.
       */
-    private def discardWriteBuffer(cause: Throwable = new ClosedChannelException): Unit =
+    private def discardWriteBuffer(
+        cause: Throwable = new ClosedChannelException): Unit =
       if (writePending) {
         writePromise.tryFailure(cause)
         resetWriteBuffer()
@@ -354,10 +367,12 @@ private[apns] abstract class NettyLogic[I, O: ClassTag](
     private def isAutoRead(ctx: ChannelHandlerContext): Boolean =
       ctx.channel().config().isAutoRead
 
-    private def setAutoRead(ctx: ChannelHandlerContext, autoRead: Boolean): Unit =
+    private def setAutoRead(ctx: ChannelHandlerContext,
+                            autoRead: Boolean): Unit =
       ctx.channel().config().setAutoRead(autoRead)
 
-    override def userEventTriggered(ctx: ChannelHandlerContext, evt: Any): Unit = {
+    override def userEventTriggered(ctx: ChannelHandlerContext,
+                                    evt: Any): Unit = {
       if (evt.isInstanceOf[ChannelInputShutdownEvent]) {
         readClosed = true
         flushOutputBuffer(ctx)
@@ -372,8 +387,9 @@ private[apns] abstract class NettyLogic[I, O: ClassTag](
     }
 
     override def handlerRemoved(ctx: ChannelHandlerContext): Unit =
-      if (ctx.channel().isActive) throw new IllegalStateException(
-        "Cannot remove the bridge while the channel is active")
+      if (ctx.channel().isActive)
+        throw new IllegalStateException(
+          "Cannot remove the bridge while the channel is active")
 
     /**
       * Signals that the output port has requested more data. It either
@@ -381,16 +397,19 @@ private[apns] abstract class NettyLogic[I, O: ClassTag](
       * be safely invoked from any thread, the operation always runs
       * on the I/O thread.
       */
-    def addDemand(): Unit = ctx.channel().eventLoop().execute(
-      new Runnable {
-        override def run(): Unit = {
-          if (outputBuffer.nonEmpty) flushOutputBuffer(ctx)
-          else if (ctx.channel().isActive && !readClosed) {
-            demand = true
-            if (!isAutoRead(ctx)) ctx.read()
+    def addDemand(): Unit =
+      ctx
+        .channel()
+        .eventLoop()
+        .execute(new Runnable {
+          override def run(): Unit = {
+            if (outputBuffer.nonEmpty) flushOutputBuffer(ctx)
+            else if (ctx.channel().isActive && !readClosed) {
+              demand = true
+              if (!isAutoRead(ctx)) ctx.read()
+            }
           }
-        }
-      })
+        })
   }
 
   // Set an initial handler for the output port. It is used until the bridge

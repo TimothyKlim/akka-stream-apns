@@ -7,8 +7,9 @@ import io.netty.handler.codec.MessageToMessageDecoder
 import java.util.{List ⇒ JList}
 
 final class ByteStringDecoder extends MessageToMessageDecoder[ByteBuf] {
-  override def decode(ctx: ChannelHandlerContext, msg: ByteBuf,
-    out: JList[AnyRef]): Unit = {
+  override def decode(ctx: ChannelHandlerContext,
+                      msg: ByteBuf,
+                      out: JList[AnyRef]): Unit = {
     val length = msg.readableBytes()
     if (msg.hasArray)
       out.add(ByteString.fromArray(msg.array(), msg.arrayOffset(), length))

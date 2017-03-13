@@ -21,7 +21,10 @@ class DeviceTokenBenchmark {
 
   @Benchmark
   def testBuilder: String =
-    tokenBytes.foldLeft(new StringBuilder) {
-      case (sb, b) ⇒ sb.append(Digits((b & 0xF0) >> 4)).append(Digits(b & 0x0F))
-    }.toString
+    tokenBytes
+      .foldLeft(new StringBuilder) {
+        case (sb, b) ⇒
+          sb.append(Digits((b & 0xF0) >> 4)).append(Digits(b & 0x0F))
+      }
+      .toString
 }

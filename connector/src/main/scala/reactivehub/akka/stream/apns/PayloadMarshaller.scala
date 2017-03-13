@@ -18,5 +18,7 @@ trait PayloadMarshaller {
 }
 
 object PayloadMarshaller {
-  type Aux[N, W[_]] = PayloadMarshaller { type Node = N; type Writer[T] = W[T] }
+  type Aux[N, W[_]] = PayloadMarshaller {
+    type Node = N; type Writer[T] = W[T]
+  }
 }

@@ -24,17 +24,20 @@ final class FixedLengthFraming(length: Int)
         } else pull(in)
       }
 
-      setHandler(in, new InHandler {
-        override def onPush(): Unit = {
-          stash ++= grab(in)
-          pushOrPull()
-        }
+      setHandler(
+        in,
+        new InHandler {
+          override def onPush(): Unit = {
+            stash ++= grab(in)
+            pushOrPull()
+          }
 
-        override def onUpstreamFinish(): Unit = {
-          emitMultiple(out, stash.grouped(length))
-          complete(out)
+          override def onUpstreamFinish(): Unit = {
+            emitMultiple(out, stash.grouped(length))
+            complete(out)
+          }
         }
-      })
+      )
 
       setHandler(out, new OutHandler {
         override def onPull(): Unit = pushOrPull()

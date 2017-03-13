@@ -18,7 +18,8 @@ object TlsUtil {
   def loadPkcs12(pkcs12: ByteString, password: String): SslContext =
     loadPkcs12(pkcs12, Option(password))
 
-  def loadPkcs12(pkcs12: ByteString, password: Option[String] = None): SslContext =
+  def loadPkcs12(pkcs12: ByteString,
+                 password: Option[String] = None): SslContext =
     loadPkcs12(pkcs12.iterator.asInputStream, password)
 
   def loadPkcs12(stream: InputStream): SslContext = loadPkcs12(stream, None)
@@ -30,6 +31,10 @@ object TlsUtil {
     val pwdChars = password.map(_.toCharArray).orNull
     val clientStore = KeyStore.getInstance("PKCS12")
     clientStore.load(stream, pwdChars)
+    loadPkcs12(clientStore, pwdChars)
+  }
+
+  def loadPkcs12(clientStore: KeyStore, pwdChars: Array[Char]): SslContext = {
     val keyManagerFactory = KMF.getInstance(KMF.getDefaultAlgorithm)
     keyManagerFactory.init(clientStore, pwdChars)
     val trustManagerFactory = TMF.getInstance(TMF.getDefaultAlgorithm)
@@ -38,17 +43,18 @@ object TlsUtil {
     val provider =
       if (OpenSsl.isAlpnSupported) SslProvider.OPENSSL else SslProvider.JDK
 
-    SslContextBuilder.forClient()
+    SslContextBuilder
+      .forClient()
       .sslProvider(provider)
       .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
       .trustManager(trustManagerFactory)
       .keyManager(keyManagerFactory)
       .clientAuth(ClientAuth.REQUIRE)
-      .applicationProtocolConfig(new ApplicationProtocolConfig(
-        Protocol.ALPN,
-        SelectorFailureBehavior.NO_ADVERTISE,
-        SelectedListenerFailureBehavior.ACCEPT,
-        ApplicationProtocolNames.HTTP_2))
+      .applicationProtocolConfig(
+        new ApplicationProtocolConfig(Protocol.ALPN,
+                                      SelectorFailureBehavior.NO_ADVERTISE,
+                                      SelectedListenerFailureBehavior.ACCEPT,
+                                      ApplicationProtocolNames.HTTP_2))
       .build()
   }
 
@@ -58,7 +64,8 @@ object TlsUtil {
   def loadPkcs12FromResource(name: String, password: String): SslContext =
     loadPkcs12FromResource(name, Option(password))
 
-  def loadPkcs12FromResource(name: String, password: Option[String]): SslContext = {
+  def loadPkcs12FromResource(name: String,
+                             password: Option[String]): SslContext = {
     val stream = TlsUtil.getClass.getResourceAsStream(name)
     try loadPkcs12(stream, password)
     finally {

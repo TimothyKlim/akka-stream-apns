@@ -28,8 +28,9 @@ object NettyLogicBenchmark {
   def source: Source[ByteString, NotUsed] =
     Source.fromIterator(() ⇒ (1 to operations).iterator).map(_ ⇒ data)
 
-  def clientChannel(remoteAddress: InetSocketAddress, group: NioEventLoopGroup,
-    handlers: ChannelHandler*): ChannelFuture =
+  def clientChannel(remoteAddress: InetSocketAddress,
+                    group: NioEventLoopGroup,
+                    handlers: ChannelHandler*): ChannelFuture =
     new Bootstrap()
       .group(group)
       .channel(classOf[NioSocketChannel])
@@ -45,10 +46,9 @@ object NettyLogicBenchmark {
       })
       .connect(remoteAddress)
 
-  class NettyClient(
-    remoteAddress: InetSocketAddress,
-    group: NioEventLoopGroup,
-    frameLength: Int)
+  class NettyClient(remoteAddress: InetSocketAddress,
+                    group: NioEventLoopGroup,
+                    frameLength: Int)
       extends GraphStage[FlowShape[ByteString, ByteString]] {
 
     val in = Inlet[ByteString]("in")
@@ -56,9 +56,11 @@ object NettyLogicBenchmark {
 
     override val shape = FlowShape(in, out)
 
-    override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
+    override def createLogic(
+        inheritedAttributes: Attributes): GraphStageLogic =
       new NettyLogic(shape) {
-        override protected def createChannel(bridge: ChannelHandler): ChannelFuture =
+        override protected def createChannel(
+            bridge: ChannelHandler): ChannelFuture =
           clientChannel(remoteAddress, group, bridge)
       }
   }
@@ -107,16 +109,20 @@ class NettyLogicBenchmark {
 
   @Benchmark
   def testNettyClient(blackHole: Blackhole): Unit = {
-    val channel = clientChannel(server.address, group,
+    val channel = clientChannel(
+      server.address,
+      group,
       new ChannelInboundHandlerAdapter {
-        override def userEventTriggered(ctx: ChannelHandlerContext, evt: Any): Unit =
+        override def userEventTriggered(ctx: ChannelHandlerContext,
+                                        evt: Any): Unit =
           if (evt.isInstanceOf[ChannelInputShutdownEvent]) ctx.close()
       },
-
       new SimpleChannelInboundHandler[ByteString] {
-        override def channelRead0(ctx: ChannelHandlerContext, msg: ByteString): Unit =
+        override def channelRead0(ctx: ChannelHandlerContext,
+                                  msg: ByteString): Unit =
           blackHole.consume(msg)
-      }).sync().channel().asInstanceOf[SocketChannel]
+      }
+    ).sync().channel().asInstanceOf[SocketChannel]
 
     var f: ChannelFuture = null
     for (i ← 1 to operations) {

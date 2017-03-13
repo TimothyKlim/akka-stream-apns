@@ -14,9 +14,11 @@ trait CirceSupport {
     override def jsonString(value: String): Json = Json.fromString(value)
     override def jsonNumber(value: Int): Json = Json.fromInt(value)
     override def jsonArray(elements: Seq[Json]): Json = Json.arr(elements: _*)
-    override def jsonObject(fields: Map[String, Json]): Json = Json.obj(fields.toSeq: _*)
+    override def jsonObject(fields: Map[String, Json]): Json =
+      Json.obj(fields.toSeq: _*)
     override def write[T](t: T, w: Encoder[T]): Json = w(t)
-    override def print(value: Json): ByteString = ByteString(Printer.noSpaces.pretty(value))
+    override def print(value: Json): ByteString =
+      ByteString(Printer.noSpaces.pretty(value))
   }
 
   private[apns] object ResponseBodyDecoders {

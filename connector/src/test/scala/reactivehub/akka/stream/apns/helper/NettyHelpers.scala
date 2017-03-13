@@ -30,8 +30,7 @@ object NettyHelpers {
   final case class Received(data: Any)
 }
 
-trait NettyHelpers {
-  this: TestKitBase ⇒
+trait NettyHelpers { this: TestKitBase ⇒
 
   abstract class TestableNettyStage[I, O: ClassTag]
       extends GraphStage[FlowShape[I, O]] { self ⇒
@@ -47,20 +46,25 @@ trait NettyHelpers {
     def expectConnectFailed() = probe.expectMsg(ConnectFailed)
     def expectClosed() = probe.expectMsg(Closed)
 
-    override def createLogic(inheritedAttributes: Attributes): GraphStageLogic =
+    override def createLogic(
+        inheritedAttributes: Attributes): GraphStageLogic =
       new NettyLogic(shape) {
-        override protected def createChannel(bridge: ChannelHandler): ChannelFuture = {
+        override protected def createChannel(
+            bridge: ChannelHandler): ChannelFuture = {
           val future = self.createChannel(bridge)
           future.addListener(new ChannelFutureListener {
             override def operationComplete(f: ChannelFuture): Unit =
               if (f.isSuccess) probe.ref ! Connected
               else probe.ref ! ConnectFailed
           })
-          future.channel().closeFuture().addListener(new ChannelFutureListener {
-            override def operationComplete(f: ChannelFuture): Unit = {
-              probe.ref ! Closed
-            }
-          })
+          future
+            .channel()
+            .closeFuture()
+            .addListener(new ChannelFutureListener {
+              override def operationComplete(f: ChannelFuture): Unit = {
+                probe.ref ! Closed
+              }
+            })
           future
         }
       }
@@ -69,10 +73,10 @@ trait NettyHelpers {
   }
 
   abstract class TestableSocketNettyStage[I, O: ClassTag](
-    remoteAddress: InetSocketAddress,
-    group: NioEventLoopGroup,
-    halfClose: Boolean = true,
-    allocator: ByteBufAllocator = UnpooledByteBufAllocator.DEFAULT)
+      remoteAddress: InetSocketAddress,
+      group: NioEventLoopGroup,
+      halfClose: Boolean = true,
+      allocator: ByteBufAllocator = UnpooledByteBufAllocator.DEFAULT)
       extends TestableNettyStage[I, O] {
 
     override def createChannel(bridge: ChannelHandler): ChannelFuture =
@@ -87,14 +91,15 @@ trait NettyHelpers {
         })
         .connect(remoteAddress)
 
-    protected def setup(pipeline: ChannelPipeline, bridge: ChannelHandler): Unit
+    protected def setup(pipeline: ChannelPipeline,
+                        bridge: ChannelHandler): Unit
   }
 
   abstract class TestableServer[T: ClassTag](
-    group: NioEventLoopGroup,
-    channelReadyWhenActive: Boolean = true,
-    halfClose: Boolean = true,
-    allocator: ByteBufAllocator = UnpooledByteBufAllocator.DEFAULT)
+      group: NioEventLoopGroup,
+      channelReadyWhenActive: Boolean = true,
+      halfClose: Boolean = true,
+      allocator: ByteBufAllocator = UnpooledByteBufAllocator.DEFAULT)
       extends AbstractServer[NioServerSocketChannel] {
 
     private val serverProbe = TestProbe()
@@ -128,16 +133,17 @@ trait NettyHelpers {
                 super.channelActive(ctx)
               }
 
-              override def userEventTriggered(ctx: ChannelHandlerContext, evt: Any): Unit = {
+              override def userEventTriggered(ctx: ChannelHandlerContext,
+                                              evt: Any): Unit = {
                 evt match {
                   case ChannelReady ⇒
                     val c = createConnection(ctx.channel(), probe, dataProbe)
                     serverProbe.ref ! c
 
-                  case Received(data)               ⇒ dataProbe.ref ! data
-                  case _: ChannelEvent              ⇒ probe.ref ! evt
+                  case Received(data) ⇒ dataProbe.ref ! data
+                  case _: ChannelEvent ⇒ probe.ref ! evt
                   case _: ChannelInputShutdownEvent ⇒ probe.ref ! InputClosed
-                  case _                            ⇒
+                  case _ ⇒
                 }
                 super.userEventTriggered(ctx, evt)
               }
@@ -148,24 +154,33 @@ trait NettyHelpers {
             pipeline.addFirst(probeHandler)
             pipeline.addFirst(createAddToChannelGroupHandler())
           }
-        }).bind("localhost", 0).sync().channel().asInstanceOf[NioServerSocketChannel]
+        })
+        .bind("localhost", 0)
+        .sync()
+        .channel()
+        .asInstanceOf[NioServerSocketChannel]
 
     protected def setup(pipeline: ChannelPipeline): Unit
 
-    protected def createConnection(channel: Channel, probe: TestProbe,
-      dataProbe: TestProbe): T
+    protected def createConnection(channel: Channel,
+                                   probe: TestProbe,
+                                   dataProbe: TestProbe): T
 
     def expectConnection(): T = serverProbe.expectMsgType[T]
   }
 
-  def run[I, O](graph: Graph[FlowShape[I, O], _])(implicit m: Materializer): (TPP[I], TSP[O]) =
-    TestSource.probe[I]
+  def run[I, O](graph: Graph[FlowShape[I, O], _])(
+      implicit m: Materializer): (TPP[I], TSP[O]) =
+    TestSource
+      .probe[I]
       .viaMat(graph.async)(Keep.left)
       .toMat(TestSink.probe[O])(Keep.both)
       .run()
 
-  def runMat[I, O, M](graph: Graph[FlowShape[I, O], M])(implicit m: Materializer): (TPP[I], TSP[O], M) =
-    TestSource.probe[I]
+  def runMat[I, O, M](graph: Graph[FlowShape[I, O], M])(
+      implicit m: Materializer): (TPP[I], TSP[O], M) =
+    TestSource
+      .probe[I]
       .viaMat(graph)(Keep.both)
       .toMat(TestSink.probe[O])((l, r) ⇒ (l._1, r, l._2))
       .run()
@@ -173,7 +188,8 @@ trait NettyHelpers {
   implicit class PimpedTestSubscriberProbe(tsp: TSP[_]) {
     def expectErrorType[T <: Throwable](implicit ct: ClassTag[T]): T =
       tsp.expectEventPF {
-        case OnError(cause) if ct.runtimeClass.isInstance(cause) ⇒ cause.asInstanceOf[T]
+        case OnError(cause) if ct.runtimeClass.isInstance(cause) ⇒
+          cause.asInstanceOf[T]
       }
   }
 }

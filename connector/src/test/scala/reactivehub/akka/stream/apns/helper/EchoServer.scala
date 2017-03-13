@@ -23,21 +23,29 @@ final class EchoServer(group: NioEventLoopGroup, halfClose: Boolean = true)
           val pipeline = channel.pipeline()
           pipeline.addLast(createAddToChannelGroupHandler())
           pipeline.addLast(new ChannelInboundHandlerAdapter {
-            override def channelRead(ctx: ChannelHandlerContext, msg: Any): Unit =
+            override def channelRead(ctx: ChannelHandlerContext,
+                                     msg: Any): Unit =
               ctx.write(msg)
 
-            override def channelReadComplete(ctx: ChannelHandlerContext): Unit =
+            override def channelReadComplete(
+                ctx: ChannelHandlerContext): Unit =
               ctx.flush()
 
-            override def channelWritabilityChanged(ctx: ChannelHandlerContext): Unit = {
+            override def channelWritabilityChanged(
+                ctx: ChannelHandlerContext): Unit = {
               ctx.channel().config().setAutoRead(ctx.channel().isWritable)
               ctx.fireChannelWritabilityChanged()
             }
 
-            override def userEventTriggered(ctx: ChannelHandlerContext, evt: Any): Unit =
+            override def userEventTriggered(ctx: ChannelHandlerContext,
+                                            evt: Any): Unit =
               if (evt.isInstanceOf[ChannelInputShutdownEvent])
                 ctx.channel().asInstanceOf[SocketChannel].shutdownOutput()
           })
         }
-      }).bind("localhost", 0).sync().channel().asInstanceOf[NioServerSocketChannel]
+      })
+      .bind("localhost", 0)
+      .sync()
+      .channel()
+      .asInstanceOf[NioServerSocketChannel]
 }

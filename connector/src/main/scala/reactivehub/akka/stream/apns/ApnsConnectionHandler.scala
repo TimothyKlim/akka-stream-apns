@@ -19,7 +19,9 @@ private[apns] object ApnsConnectionHandler {
     def apply(): Builder = new Builder()
   }
 
-  final class Builder extends AbstractHttp2ConnectionHandlerBuilder[ApnsConnectionHandler, Builder] { self ⇒
+  final class Builder
+      extends AbstractHttp2ConnectionHandlerBuilder[ApnsConnectionHandler,
+                                                    Builder] { self ⇒
     server(false)
 
     private var reasonPromise: Promise[Option[Reason]] = _
@@ -51,15 +53,19 @@ private[apns] object ApnsConnectionHandler {
     override def build(): ApnsConnectionHandler = super.build()
 
     override def build(
-      decoder: Http2ConnectionDecoder,
-      encoder: Http2ConnectionEncoder,
-      initialSettings: Http2Settings): ApnsConnectionHandler = {
+        decoder: Http2ConnectionDecoder,
+        encoder: Http2ConnectionEncoder,
+        initialSettings: Http2Settings): ApnsConnectionHandler = {
 
       checkNotNull(reasonPromise, "reasonPromise")
       checkNotNull(unmarshaller, "unmarshaller")
 
-      val handler = new ApnsConnectionHandler(decoder, encoder, initialSettings,
-        propagateSettings, reasonPromise, unmarshaller)
+      val handler = new ApnsConnectionHandler(decoder,
+                                              encoder,
+                                              initialSettings,
+                                              propagateSettings,
+                                              reasonPromise,
+                                              unmarshaller)
       frameListener(new handler.Listener)
       handler
     }
@@ -84,9 +90,12 @@ private[apns] object ApnsConnectionHandler {
   * correlation id is used as apns id.
   */
 private[apns] final class ApnsConnectionHandler(
-  decoder: Http2ConnectionDecoder, encoder: Http2ConnectionEncoder,
-  initialSettings: Http2Settings, propagateSettings: Boolean,
-  reasonPromise: Promise[Option[Reason]], unmarshaller: ResponseUnmarshaller)
+    decoder: Http2ConnectionDecoder,
+    encoder: Http2ConnectionEncoder,
+    initialSettings: Http2Settings,
+    propagateSettings: Boolean,
+    reasonPromise: Promise[Option[Reason]],
+    unmarshaller: ResponseUnmarshaller)
     extends Http2ConnectionHandler(decoder, encoder, initialSettings) {
 
   private val conn = connection()
@@ -103,15 +112,18 @@ private[apns] final class ApnsConnectionHandler(
       ctx.fireChannelReadComplete()
     }
 
-  override def write(ctx: ChannelHandlerContext, msg: Any, promise: ChannelPromise): Unit =
+  override def write(ctx: ChannelHandlerContext,
+                     msg: Any,
+                     promise: ChannelPromise): Unit =
     msg match {
       case (c: Any, n: Notification) ⇒ write(ctx, c, n, promise)
-      case _                         ⇒ ctx.write(msg, promise)
+      case _ ⇒ ctx.write(msg, promise)
     }
 
-  private def write(ctx: ChannelHandlerContext, correlationId: Any,
-    notification: Notification, promise: ChannelPromise): Unit =
-
+  private def write(ctx: ChannelHandlerContext,
+                    correlationId: Any,
+                    notification: Notification,
+                    promise: ChannelPromise): Unit =
     if (local.canOpenStream) {
       import notification._
 
@@ -127,18 +139,20 @@ private[apns] final class ApnsConnectionHandler(
         .addLong(HeaderExpiration, expiration.map(_.value).getOrElse(0L))
 
       id.orElse(correlationId match {
-        case uuid: UUID ⇒ Some(uuid)
-        case _          ⇒ None
-      }).foreach(id ⇒ headers.add(HeaderId, id.toString))
+          case uuid: UUID ⇒ Some(uuid)
+          case _ ⇒ None
+        })
+        .foreach(id ⇒ headers.add(HeaderId, id.toString))
 
       priority.foreach {
         case High ⇒ headers.addInt(HeaderPriority, 10)
-        case Low  ⇒ headers.addInt(HeaderPriority, 5)
+        case Low ⇒ headers.addInt(HeaderPriority, 5)
       }
 
       topic.foreach(topic ⇒ headers.add(HeaderTopic, topic))
-      
-      collapseId.foreach(collapseId ⇒ headers.add(HeaderCollapseId, collapseId))
+
+      collapseId.foreach(collapseId ⇒
+        headers.add(HeaderCollapseId, collapseId))
 
       val headersPromise = ctx.newPromise()
       encoder.writeHeaders(ctx, streamId, headers, 0, false, headersPromise)
@@ -147,21 +161,26 @@ private[apns] final class ApnsConnectionHandler(
       encoder.writeData(ctx, streamId, buffer, 0, true, dataPromise)
 
       val promiseCombiner = new PromiseCombiner()
-      promiseCombiner.addAll(headersPromise, dataPromise)
+      promiseCombiner.addAll(
+        headersPromise: io.netty.util.concurrent.Future[_],
+        dataPromise: io.netty.util.concurrent.Future[_])
       promiseCombiner.finish(promise)
 
       val stream = conn.stream(streamId)
       stream.setProperty[Any](correlationIdKey, correlationId)
     } else ctx.close()
 
-  class Listener extends Http2EventAdapter {
-    override def onDataRead(ctx: ChannelHandlerContext, streamId: Int,
-      data: ByteBuf, padding: Int, endOfStream: Boolean): Int = {
+  final class Listener extends Http2EventAdapter {
+    override def onDataRead(ctx: ChannelHandlerContext,
+                            streamId: Int,
+                            data: ByteBuf,
+                            padding: Int,
+                            endOfStream: Boolean): Int = {
 
       val stream = connection.stream(streamId)
       val builder = stream.getProperty[StringBuilder](dataKey) match {
         case null ⇒ StringBuilder.newBuilder.append(data.toString(UTF_8))
-        case b    ⇒ b.append(data.toString(UTF_8))
+        case b ⇒ b.append(data.toString(UTF_8))
       }
 
       if (endOfStream) {
@@ -173,13 +192,21 @@ private[apns] final class ApnsConnectionHandler(
       data.readableBytes + padding
     }
 
-    override def onHeadersRead(ctx: ChannelHandlerContext, streamId: Int,
-      headers: Http2Headers, streamDependency: Int, weight: Short,
-      exclusive: Boolean, padding: Int, endStream: Boolean): Unit =
+    override def onHeadersRead(ctx: ChannelHandlerContext,
+                               streamId: Int,
+                               headers: Http2Headers,
+                               streamDependency: Int,
+                               weight: Short,
+                               exclusive: Boolean,
+                               padding: Int,
+                               endStream: Boolean): Unit =
       onHeadersRead(ctx, streamId, headers, padding, endStream)
 
-    override def onHeadersRead(ctx: ChannelHandlerContext, streamId: Int,
-      headers: Http2Headers, padding: Int, endStream: Boolean): Unit = {
+    override def onHeadersRead(ctx: ChannelHandlerContext,
+                               streamId: Int,
+                               headers: Http2Headers,
+                               padding: Int,
+                               endStream: Boolean): Unit = {
 
       val stream = connection.stream(streamId)
       val newHeaders = stream.getProperty[Http2Headers](headersKey) match {
@@ -194,15 +221,18 @@ private[apns] final class ApnsConnectionHandler(
       } else stream.setProperty(headersKey, newHeaders)
     }
 
-    override def onSettingsRead(ctx: ChannelHandlerContext, settings: Http2Settings): Unit =
+    override def onSettingsRead(ctx: ChannelHandlerContext,
+                                settings: Http2Settings): Unit =
       if (propagateSettings) ctx.fireChannelRead(settings)
 
-    override def onGoAwayRead(ctx: ChannelHandlerContext, lastStreamId: Int,
-      errorCode: Long, debugData: ByteBuf): Unit = {
+    override def onGoAwayRead(ctx: ChannelHandlerContext,
+                              lastStreamId: Int,
+                              errorCode: Long,
+                              debugData: ByteBuf): Unit = {
 
       extractBody(debugData.toString(UTF_8)) match {
         case Right(body) ⇒ reasonPromise.success(body.map(_.reason))
-        case Left(msg)   ⇒ error(msg)
+        case Left(msg) ⇒ error(msg)
       }
     }
 
@@ -215,8 +245,11 @@ private[apns] final class ApnsConnectionHandler(
       stream.removeProperty[StringBuilder](dataKey)
     }
 
-    private def fireChannelRead(ctx: ChannelHandlerContext, stream: Http2Stream,
-      correlationId: Any, headers: Http2Headers, data: Option[String]): Unit = {
+    private def fireChannelRead(ctx: ChannelHandlerContext,
+                                stream: Http2Stream,
+                                correlationId: Any,
+                                headers: Http2Headers,
+                                data: Option[String]): Unit = {
 
       removeStream(stream)
 
@@ -232,32 +265,41 @@ private[apns] final class ApnsConnectionHandler(
               val failure = Response.Failure(sc, body.reason, body.timestamp)
               ctx.fireChannelRead(correlationId → failure)
 
-            case Right(_)  ⇒ error(stream, "DATA frame not received")
+            case Right(_) ⇒ error(stream, "DATA frame not received")
             case Left(msg) ⇒ error(stream, msg)
           }
       }
     }
 
-    private def extractStatusCode(headers: Http2Headers): Either[String, StatusCode] =
-      if (!headers.contains(HeaderStatus)) Left(s"Header $HeaderStatus missing")
+    private def extractStatusCode(
+        headers: Http2Headers): Either[String, StatusCode] =
+      if (!headers.contains(HeaderStatus))
+        Left(s"Header $HeaderStatus missing")
       else {
         val status = headers.get(HeaderStatus)
         Try(status.toString.toInt) match {
-          case Success(code) ⇒ parseStatusCode(code)
-            .toRight(s"Header $HeaderStatus contains unknown status code $code")
+          case Success(code) ⇒
+            parseStatusCode(code)
+              .toRight(
+                s"Header $HeaderStatus contains unknown status code $code")
           case Failure(_) ⇒ Left(s"Header $HeaderStatus is invalid")
         }
       }
 
-    private def extractBody(str: String): Either[String, Option[ResponseBody]] =
+    private def extractBody(
+        str: String): Either[String, Option[ResponseBody]] =
       if (str.isEmpty) Right(None)
-      else Try(unmarshaller.read(str)) match {
-        case Success(body)  ⇒ Right(Some(body))
-        case Failure(cause) ⇒ Left("Response data does not contain a valid JSON")
-      }
+      else
+        Try(unmarshaller.read(str)) match {
+          case Success(body) ⇒ Right(Some(body))
+          case Failure(cause) ⇒
+            Left("Response data does not contain a valid JSON")
+        }
 
     private def error(stream: Http2Stream, msg: String): Http2Exception =
-      throw Http2Exception.streamError(stream.id(), Http2Error.PROTOCOL_ERROR, msg)
+      throw Http2Exception.streamError(stream.id(),
+                                       Http2Error.PROTOCOL_ERROR,
+                                       msg)
 
     private def error(msg: String): Http2Exception =
       throw Http2Exception.connectionError(Http2Error.PROTOCOL_ERROR, msg)

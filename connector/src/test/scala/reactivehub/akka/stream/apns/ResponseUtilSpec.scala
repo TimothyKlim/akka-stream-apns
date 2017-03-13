@@ -41,7 +41,8 @@ class ResponseUtilSpec extends FlatSpec with Matchers {
   }
 
   it should "convert string \"DeviceTokenNotForTopic\" to Reason.DeviceTokenNotForTopic" in {
-    parseReason("DeviceTokenNotForTopic") shouldBe Some(Reason.DeviceTokenNotForTopic)
+    parseReason("DeviceTokenNotForTopic") shouldBe Some(
+      Reason.DeviceTokenNotForTopic)
   }
 
   it should "convert string \"Unregistered\" to Reason.Unregistered" in {
@@ -53,7 +54,8 @@ class ResponseUtilSpec extends FlatSpec with Matchers {
   }
 
   it should "convert string \"BadCertificateEnvironment\" to Reason.BadCertificateEnvironment" in {
-    parseReason("BadCertificateEnvironment") shouldBe Some(Reason.BadCertificateEnvironment)
+    parseReason("BadCertificateEnvironment") shouldBe Some(
+      Reason.BadCertificateEnvironment)
   }
 
   it should "convert string \"BadCertificate\" to Reason.BadCertificate" in {
@@ -85,7 +87,8 @@ class ResponseUtilSpec extends FlatSpec with Matchers {
   }
 
   it should "convert string \"InternalServerError\" to Reason.InternalServerError" in {
-    parseReason("InternalServerError") shouldBe Some(Reason.InternalServerError)
+    parseReason("InternalServerError") shouldBe Some(
+      Reason.InternalServerError)
   }
 
   it should "convert string \"ServiceUnavailable\" to Reason.ServiceUnavailable" in {
