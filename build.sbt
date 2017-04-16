@@ -23,7 +23,7 @@ lazy val commonSettings = Seq(
   scmInfo := Some(
     ScmInfo(url("https://github.com/reactive-hub/akka-stream-apns"),
             "git@github.com:reactive-hub/akka-stream-apns.git")),
-  bintrayOrganization := Some("reactivehub"),
+  bintrayOrganization := Some("timothyklim"),
   publishMavenStyle := true,
   pomIncludeRepository := (_ ⇒ false),
   pomExtra := (
