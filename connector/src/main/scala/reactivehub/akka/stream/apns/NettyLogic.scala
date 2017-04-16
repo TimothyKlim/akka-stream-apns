@@ -190,7 +190,7 @@ private[apns] abstract class NettyLogic[I, O: ClassTag](
     */
   private val writeFailed = getAsyncCallback[Throwable](fail) invoke _
 
-  private final class Bridge extends ChannelDuplexHandler {
+  private class Bridge extends ChannelDuplexHandler {
 
     /**
       * ChannelHandlerContext associated with this handler. Accessed from
@@ -259,7 +259,7 @@ private[apns] abstract class NettyLogic[I, O: ClassTag](
         do {
           val p = ctx.newPromise()
           ctx.write(writeBuffer.dequeue(), p)
-          combiner.add(p: io.netty.util.concurrent.Future[_])
+          combiner.add(p: ChannelFuture)
         } while (writeBuffer.nonEmpty && channel.isActive && channel.isWritable)
 
         if (channel.isActive) {

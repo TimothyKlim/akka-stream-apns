@@ -2,7 +2,7 @@ import sbt._
 
 object Dependencies {
   val akkaStream = "com.typesafe.akka" %% "akka-stream" % "2.5.0"
-  val netty = "io.netty" % "netty-codec-http2" % "4.1.8.Final"
+  val netty = "io.netty" % "netty-codec-http2" % "4.1.9.Final"
 
   val circeParser = "io.circe" %% "circe-parser" % "0.7.1"
   val circeGeneric = "io.circe" %% "circe-generic" % "0.7.1"
