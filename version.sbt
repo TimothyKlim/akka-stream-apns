@@ -1,1 +1,1 @@
-version in ThisBuild := "yzer-0.11"
+version in ThisBuild := "yzer-0.12"
